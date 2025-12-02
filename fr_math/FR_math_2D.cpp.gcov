@@ -1,0 +1,211 @@
+        -:    0:Source:src/FR_math_2D.cpp
+        -:    0:Graph:build/FR_math_2D.gcno
+        -:    0:Data:build/FR_math_2D.gcda
+        -:    0:Runs:3
+        -:    1:/**
+        -:    2: *
+        -:    3: *	@file FR_math_2D.cpp - c++ implementation file for fixed radix math
+        -:    4: *                       - 2D simple matrices
+        -:    5: *
+        -:    6: *	@copy Copyright (C) <2001-2014>  <M. A. Chatterjee>
+        -:    7: *  @author M A Chatterjee <deftio [at] deftio [dot] com>
+        -:    8: *	@version 1.0.3 M. A. Chatterjee, cleaned up naming
+        -:    9: *
+        -:   10: *  This file contains integer math settable fixed point radix math routines for
+        -:   11: *  use on systems in which floating point is not desired or unavailable.
+        -:   12: *
+        -:   13: *	This software is provided 'as-is', without any express or implied
+        -:   14: *	warranty. In no event will the authors be held liable for any damages
+        -:   15: *	arising from the use of this software.
+        -:   16: *
+        -:   17: *	Permission is granted to anyone to use this software for any purpose,
+        -:   18: *	including commercial applications, and to alter it and redistribute it
+        -:   19: *	freely, subject to the following restrictions:
+        -:   20: *
+        -:   21: *	1. The origin of this software must not be misrepresented; you must not
+        -:   22: *	claim that you wrote the original software. If you use this software
+        -:   23: *	in a product, please place an acknowledgment in the product documentation.
+        -:   24: *
+        -:   25: *	2. Altered source versions must be plainly marked as such, and must not be
+        -:   26: *	misrepresented as being the original software.
+        -:   27: *
+        -:   28: *	3. This notice may not be removed or altered from any source
+        -:   29: *	distribution.
+        -:   30: *
+        -:   31: */
+        -:   32:
+        -:   33:#include "FR_math_2D.h"
+        -:   34:#include "FR_math.h"
+        -:   35:// namespace FR_MATH {
+        -:   36://=======================================================
+        -:   37://  Matrix Functions
+        -:   38:
+       23:   39:void FR_Matrix2D_CPT::ID()
+        -:   40:{
+       23:   41:	m00 = I2FR(1, radix);
+       23:   42:	m01 = 0;
+       23:   43:	m02 = 0;
+        -:   44:
+       23:   45:	m10 = 0;
+       23:   46:	m11 = I2FR(1, radix);
+       23:   47:	m12 = 0;
+        -:   48:
+       23:   49:	fast = checkfast();
+       23:   50:}
+        -:   51:
+        -:   52:// det() computes the determinant based on the assumption that these are
+        -:   53:// coordinate x-form matrices and  not general purpose 3x3 matrices
+        5:   54:s32 FR_Matrix2D_CPT ::det()
+        -:   55:{
+        -:   56:	// det = m00 * m11 - m01 * m10
+        5:   57:	return FR_FixAddSat(FR_FixMulSat(m00, m11), -FR_FixMulSat(m01, m10)) >> radix;
+        -:   58:}
+        -:   59:
+        -:   60:// inv() computes inverse of a coordinate transform matrix
+        -:   61:// actual representation is as below:
+        -:   62:// m00	m01	m02
+        -:   63:// m10	m11	m12
+        -:   64:// 0	0	1
+        -:   65:// note there are 6 divides here -- this is not a performance issue as these only occur
+        -:   66:// when once each time the user changes the zoom or rotation etc.  This fn is not called
+        -:   67:// in the rendering loop
+        -:   68:
+        3:   69:FR_RESULT FR_Matrix2D_CPT ::inv(FR_Matrix2D_CPT *npI)
+        -:   70:{
+        3:   71:	s32 d = det();
+        3:   72:	if (0 == d)
+        -:   73:		return FR_E_UNABLE;
+        -:   74:
+        3:   75:	if (npI == this)
+        -:   76:	{
+        -:   77:		return FR_E_BADARGUMENTS;
+        -:   78:	}
+        3:   79:	npI->m00 = (m11 << radix) / d;
+        3:   80:	npI->m01 = ((-m01) << radix) / d;
+        3:   81:	npI->m02 = (FR_FixAddSat(FR_FixMulSat(m01, m12), -FR_FixMulSat(m02, m11))) / d;
+        -:   82:
+        3:   83:	npI->m10 = ((-m10) << radix) / d;
+        3:   84:	npI->m11 = (m00 << radix) / d;
+        3:   85:	npI->m12 = (FR_FixAddSat(FR_FixMulSat(m02, m10), -FR_FixMulSat(m00, m12))) / d;
+        -:   86:
+        3:   87:	npI->fast = npI->checkfast();
+        3:   88:	npI->radix = radix;
+        -:   89:
+        3:   90:	return FR_S_OK;
+        -:   91:}
+        -:   92://===============================================================
+        -:   93:// compute inverse of self, note some matrices not invertable
+        1:   94:FR_RESULT FR_Matrix2D_CPT ::inv()
+        -:   95:{
+        -:   96:	FR_RESULT res = FR_S_OK;
+        -:   97:	FR_Matrix2D_CPT n;
+        1:   98:	inv(&n);
+        1:   99:	*this = n;
+        1:  100:	return res;
+        -:  101:}
+        -:  102://================================================================
+        -:  103:// set up an integer rotation in degrees.
+        6:  104:FR_RESULT FR_Matrix2D_CPT ::setrotate(s16 deg)
+        -:  105:{
+        6:  106:	m00 = (FR_CosI(deg)) >> (FR_TRIG_PREC - radix);	 // the 15 comes from Cos/Sin precision
+        6:  107:	m01 = -(FR_SinI(deg)) >> (FR_TRIG_PREC - radix); // see those fns for more details
+        6:  108:	m10 = (FR_SinI(deg)) >> (FR_TRIG_PREC - radix);
+        6:  109:	m11 = (FR_CosI(deg)) >> (FR_TRIG_PREC - radix);
+        6:  110:	checkfast();
+        6:  111:	return FR_S_OK;
+        -:  112:	;
+        -:  113:}
+        -:  114://================================================================
+        -:  115:// set up a rotation with fixed radix input precision
+        2:  116:FR_RESULT FR_Matrix2D_CPT ::setrotate(s16 deg, u16 deg_radix)
+        -:  117:{
+        2:  118:	m00 = (FR_Cos(deg, deg_radix)) >> (FR_TRIG_PREC - radix);  // the 15 comes from Cos/Sin precision
+        2:  119:	m01 = -(FR_Sin(deg, deg_radix)) >> (FR_TRIG_PREC - radix); // see those fns for more details
+        2:  120:	m10 = (FR_Sin(deg, deg_radix)) >> (FR_TRIG_PREC - radix);
+        2:  121:	m11 = (FR_Cos(deg, deg_radix)) >> (FR_TRIG_PREC - radix);
+        2:  122:	checkfast();
+        2:  123:	return FR_S_OK;
+        -:  124:}
+        -:  125://================================================================
+        -:  126:// Add two matrices together
+        -:  127:
+        2:  128:FR_RESULT FR_Matrix2D_CPT ::add(const FR_Matrix2D_CPT *pAdd)
+        -:  129:{
+        2:  130:	m00 = FR_FixAddSat(m00, pAdd->m00);
+        2:  131:	m01 = FR_FixAddSat(m01, pAdd->m01);
+        2:  132:	m02 = FR_FixAddSat(m02, pAdd->m02);
+        2:  133:	m10 = FR_FixAddSat(m10, pAdd->m10);
+        2:  134:	m11 = FR_FixAddSat(m11, pAdd->m11);
+        2:  135:	m12 = FR_FixAddSat(m12, pAdd->m12);
+        2:  136:	checkfast();
+        2:  137:	return FR_S_OK;
+        -:  138:}
+        -:  139://=======================================================
+        -:  140:// Sub two matrices this -= pSub
+        -:  141:
+        2:  142:FR_RESULT FR_Matrix2D_CPT ::sub(const FR_Matrix2D_CPT *pSub)
+        -:  143:{
+        2:  144:	m00 = FR_FixAddSat(m00, -(pSub->m00));
+        2:  145:	m01 = FR_FixAddSat(m01, -(pSub->m01));
+        2:  146:	m02 = FR_FixAddSat(m02, -(pSub->m02));
+        2:  147:	m10 = FR_FixAddSat(m10, -(pSub->m10));
+        2:  148:	m11 = FR_FixAddSat(m11, -(pSub->m11));
+        2:  149:	m12 = FR_FixAddSat(m12, -(pSub->m12));
+        2:  150:	checkfast();
+        2:  151:	return FR_S_OK;
+        -:  152:}
+        -:  153:
+        -:  154://=======================================================
+        -:  155:// set a matrix with the provided data
+        -:  156:
+       10:  157:void FR_Matrix2D_CPT ::set(s32 a00, s32 a01, s32 a02, s32 a10, s32 a11, s32 a12, u16 nRadix)
+        -:  158:{
+       10:  159:	m00 = a00;
+       10:  160:	m01 = a01;
+       10:  161:	m02 = a02;
+       10:  162:	m10 = a10;
+       10:  163:	m11 = a11;
+       10:  164:	m12 = a12;
+       10:  165:	radix = nRadix;
+       10:  166:	checkfast();
+       10:  167:}
+        -:  168://=======================================================
+        -:  169:// standard matrix operators
+        -:  170:
+        1:  171:FR_Matrix2D_CPT &FR_Matrix2D_CPT ::operator+=(const FR_Matrix2D_CPT &nM)
+        -:  172:{
+        1:  173:	add(&nM);
+        1:  174:	return *this;
+        -:  175:}
+        -:  176:
+        1:  177:FR_Matrix2D_CPT &FR_Matrix2D_CPT ::operator-=(const FR_Matrix2D_CPT &nM)
+        -:  178:{
+        1:  179:	sub(&nM);
+        1:  180:	return *this;
+        -:  181:}
+        -:  182:
+        1:  183:FR_Matrix2D_CPT &FR_Matrix2D_CPT ::operator*=(const s32 &X)
+        -:  184:{
+        1:  185:	m00 = FR_FixMulSat(m00, X);
+        1:  186:	m01 = FR_FixMulSat(m01, X);
+        1:  187:	m02 = FR_FixMulSat(m02, X);
+        1:  188:	m10 = FR_FixMulSat(m10, X);
+        1:  189:	m11 = FR_FixMulSat(m11, X);
+        1:  190:	m12 = FR_FixMulSat(m12, X);
+        1:  191:	checkfast();
+        1:  192:	return *this;
+        -:  193:}
+        -:  194:
+        7:  195:FR_Matrix2D_CPT &FR_Matrix2D_CPT ::operator=(const FR_Matrix2D_CPT &nM)
+        -:  196:{
+        7:  197:	m00 = nM.m00;
+        7:  198:	m01 = nM.m01;
+        7:  199:	m02 = nM.m02;
+        7:  200:	m10 = nM.m10;
+        7:  201:	m11 = nM.m11;
+        7:  202:	m12 = nM.m12;
+        7:  203:	radix = nM.radix;
+        7:  204:	checkfast();
+        7:  205:	return *this;
+        -:  206:}
+        -:  207://} //end namespace FR_MATH

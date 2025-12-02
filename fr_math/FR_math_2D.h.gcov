@@ -1,0 +1,217 @@
+        -:    0:Source:src/FR_math_2D.h
+        -:    0:Graph:build/FR_math_2D.gcno
+        -:    0:Data:build/FR_math_2D.gcda
+        -:    0:Runs:3
+        -:    1:/**
+        -:    2: *	@FR_mathroutines.h - header definition file for fixed radix 2D coordinate transforms
+        -:    3: *
+        -:    4: *	@copy Copyright (C) <2001-2012>  <M. A. Chatterjee>
+        -:    5: *  @author M A Chatterjee <deftio [at] deftio [dot] com>
+        -:    6: *	@version 1.0.3 M. A. Chatterjee, cleaned up naming
+        -:    7: *
+        -:    8: *  This file contains integer math settable fixed point radix math routines for
+        -:    9: *  use on systems in which floating point is not desired or unavailable.
+        -:   10: *  naming cleaned up in 2012, but otherwise collected from random progs I've
+        -:   11: *  written in the last 15 or so years.
+        -:   12: *
+        -:   13: *  @license:
+        -:   14: *	This software is provided 'as-is', without any express or implied
+        -:   15: *	warranty. In no event will the authors be held liable for any damages
+        -:   16: *	arising from the use of this software.
+        -:   17: *
+        -:   18: *	Permission is granted to anyone to use this software for any purpose,
+        -:   19: *	including commercial applications, and to alter it and redistribute it
+        -:   20: *	freely, subject to the following restrictions:
+        -:   21: *
+        -:   22: *	1. The origin of this software must not be misrepresented; you must not
+        -:   23: *	claim that you wrote the original software. If you use this software
+        -:   24: *	in a product, an acknowledgment in the product documentation would be
+        -:   25: *	appreciated but is not required.
+        -:   26: *
+        -:   27: *	2. Altered source versions must be plainly marked as such, and must not be
+        -:   28: *	misrepresented as being the original software.
+        -:   29: *
+        -:   30: *	3. This notice may not be removed or altered from any source
+        -:   31: *	distribution.
+        -:   32: *
+        -:   33: */
+        -:   34:
+        -:   35:#ifndef __FR_math_2D_h__
+        -:   36:#define __FR_math_2D_h__
+        -:   37:
+        -:   38:#ifdef __cplusplus
+        -:   39:// namespace  FR_MATH {
+        -:   40:extern "C"
+        -:   41:{
+        -:   42:#endif
+        -:   43:
+        -:   44:#ifndef __FR_Platform_Defs_H__
+        -:   45:#include "FR_defs.h"
+        -:   46:#endif
+        -:   47:
+        -:   48:#ifndef __FR_Math_h__
+        -:   49:#include "FR_math.h"
+        -:   50:#endif
+        -:   51:
+        -:   52://===============================================
+        -:   53:// 2D Fixed radix matrix class for Coordinate Point Transforms (CPT)
+        -:   54:// This is *NOT* a complete matrix class just something for common 2D point transformations.
+        -:   55:// some operators not provided because the programmer needs to make decisions about
+        -:   56:// precision/radix tradeoffs
+        -:   57://================================================
+        -:   58:// Simple class to handle coord transforms
+        -:   59:#define FR_MAT_DEFPREC (8) // default precision radix
+        -:   60:
+        -:   61:	struct FR_Matrix2D_CPT
+        -:   62:	{
+        -:   63:		// note: if modifying these variables by hand be sure to call checkfast() afterwards
+        -:   64:		s32 m00;
+        -:   65:		s32 m01;
+        -:   66:		s32 m02;
+        -:   67:		s32 m10;
+        -:   68:		s32 m11;
+        -:   69:		s32 m12;
+        -:   70:
+        -:   71:		// don't need m20 .. m22 because always 0 0 1 in coord-matrices
+        -:   72:		// wrote out m00 to make code easier to read in fix point (see the .cpp)
+        -:   73:
+        -:   74:		u16 radix; // internal precision radix point
+        -:   75:		int fast;  // for taking advantage of scale-only matrices
+        -:   76:
+        -:   77:		//========================
+        -:   78:		void ID(); // create Identity matrix
+        -:   79:
+        -:   80:		//=======================
+        1:   81:		FR_Matrix2D_CPT(u16 nRadix = FR_MAT_DEFPREC) : radix(nRadix) { ID(); }; // constructor
+        -:   82:
+        -:   83:		// matrix operators
+        -:   84:		s32 det();									// compute determinant, result is in same precision as radix (not 2*radix)
+        -:   85:		FR_RESULT inv(FR_Matrix2D_CPT *nInv);		// compute matrix inverse and put in nInv
+        -:   86:		FR_RESULT inv();							// compute matrix inverse of this
+        -:   87:		FR_RESULT add(const FR_Matrix2D_CPT *pAdd); // matrix this = this+pAdd;
+        -:   88:		FR_RESULT sub(const FR_Matrix2D_CPT *pSub); // matrix this = this-pSub;
+        -:   89:		FR_RESULT setrotate(s16 deg);				// set upr left 2x2 to rot matrix
+        -:   90:		FR_RESULT setrotate(s16 deg, u16 radix);	// set upr left 2x2 to rot matrix
+        -:   91:
+        -:   92:		FR_Matrix2D_CPT &operator=(const FR_Matrix2D_CPT &nM);
+        -:   93:		FR_Matrix2D_CPT &operator+=(const FR_Matrix2D_CPT &nM);
+        -:   94:		FR_Matrix2D_CPT &operator-=(const FR_Matrix2D_CPT &nM);
+        -:   95:
+        -:   96:		// scalar operators
+        -:   97:		FR_Matrix2D_CPT &operator*=(const s32 &X);
+        -:   98:
+    #####:   99:		bool checkfast()
+        -:  100:		{
+    #####:  101:			fast = ((m01 == 0) && (m10 == 0)) ? true : false;
+    #####:  102:			return fast;
+        -:  103:		};
+        -:  104:		void set(s32 a00, s32 a01, s32 a02, s32 a10, s32 a11, s32 a12, u16 nRadix = FR_MAT_DEFPREC);
+        -:  105:
+        -:  106:		// coordinate transform fns
+        -:  107:		void XlateI(s32 x, s32 y)
+        -:  108:		{
+        -:  109:			m02 = x << radix;
+        -:  110:			m12 = y << radix;
+        -:  111:		}
+        -:  112:		void XlateI(s32 x, s32 y, u16 nRadix)
+        -:  113:		{
+        -:  114:			m02 = x << nRadix;
+        -:  115:			m12 = y << nRadix;
+        -:  116:		}
+        -:  117:		void XlateRelativeI(s32 x, s32 y)
+        -:  118:		{
+        -:  119:			m02 += x << radix;
+        -:  120:			m12 += y << radix;
+        -:  121:		}
+        -:  122:		void XlateRelativeI(s32 x, s32 y, u16 nRadix)
+        -:  123:		{
+        -:  124:			m02 += x << nRadix;
+        -:  125:			m12 += y << nRadix;
+        -:  126:		}
+        -:  127:
+        -:  128:		//========================
+        -:  129:		// XFormPtI takes Integer input and produces fixed pt output for multiple Xforms
+        -:  130:		// user is responsible for watching location of radix point.  For integer results use:
+        -:  131:		// MyMatrix.XFormPtI(x,y,&xp,&yp,MyMatrix.radix);
+        -:  132:		// note that all precision etc. has been precomputed in inv()
+        -:  133:		// take a point and XForm it to coords represented by this matrix
+        -:  134:		void inline XFormPtI(s32 x, s32 y, s32 *xp, s32 *yp, u16 r)
+        -:  135:		{
+        -:  136:			if (fast)
+        -:  137:			{
+        -:  138:				*xp = (x * m00 + m02) >> r;
+        -:  139:				*yp = (y * m11 + m12) >> r;
+        -:  140:			}
+        -:  141:			else
+        -:  142:			{
+        -:  143:				*xp = (x * m00 + y * m01 + m02) >> r;
+        -:  144:				*yp = (x * m10 + y * m11 + m12) >> r;
+        -:  145:			}
+        -:  146:		}
+        -:  147:		void inline XFormPtI(s32 x, s32 y, s32 *xp, s32 *yp)
+        -:  148:		{
+        -:  149:			if (fast)
+        -:  150:			{
+        -:  151:				*xp = (x * m00 + m02) >> radix;
+        -:  152:				*yp = (y * m11 + m12) >> radix;
+        -:  153:			}
+        -:  154:			else
+        -:  155:			{
+        -:  156:				*xp = (x * m00 + y * m01 + m02) >> radix;
+        -:  157:				*yp = (x * m10 + y * m11 + m12) >> radix;
+        -:  158:			}
+        -:  159:		}
+        -:  160:		// take a point and XForm it to coords represented by this matrix w/o translation
+        -:  161:		void inline XFormPtINoTranslate(s32 x, s32 y, s32 *xp, s32 *yp, u16 r)
+        -:  162:		{
+        -:  163:			if (fast)
+        -:  164:			{
+        -:  165:				*xp = (x * m00) >> r;
+        -:  166:				*yp = (y * m11) >> r;
+        -:  167:			}
+        -:  168:			else
+        -:  169:			{
+        -:  170:				*xp = (x * m00 + y * m01) >> r;
+        -:  171:				*yp = (x * m10 + y * m11) >> r;
+        -:  172:			}
+        -:  173:		}
+        -:  174:
+        -:  175:		//========================
+        -:  176:		// XFormPtI16 takes Integer input and produces Integer output for quikr needs
+        -:  177:		// take a point and XForm it to coords represented by this matrix
+        -:  178:		void inline XFormPtI16(s16 x, s16 y, s16 *xp, s16 *yp)
+        -:  179:		{
+        -:  180:			if (fast)
+        -:  181:			{
+        -:  182:				*xp = (s16)((((s32)x) * m00 + m02) >> radix);
+        -:  183:				*yp = (s16)((((s32)y) * m11 + m12) >> radix);
+        -:  184:			}
+        -:  185:			else
+        -:  186:			{
+        -:  187:				*xp = (s16)((((s32)x) * m00 + ((s32)y) * m01 + m02) >> radix);
+        -:  188:				*yp = (s16)((((s32)x) * m10 + ((s32)y) * m11 + m12) >> radix);
+        -:  189:			}
+        -:  190:		}
+        -:  191:
+        -:  192:		// take a point and XForm it to coords represented by this matrix (no translate)
+        -:  193:		void inline XFormPtI16NoTranslate(s16 x, s16 y, s16 *xp, s16 *yp)
+        -:  194:		{
+        -:  195:			if (fast)
+        -:  196:			{
+        -:  197:				*xp = (s16)((((s32)x) * m00) >> radix);
+        -:  198:				*yp = (s16)((((s32)y) * m11) >> radix);
+        -:  199:			}
+        -:  200:			else
+        -:  201:			{
+        -:  202:				*xp = (s16)((((s32)x) * m00 + ((s32)y) * m01) >> radix);
+        -:  203:				*yp = (s16)((((s32)x) * m10 + ((s32)y) * m11) >> radix);
+        -:  204:			}
+        -:  205:		}
+        -:  206:	};
+        -:  207:
+        -:  208:#ifdef __cplusplus
+        -:  209:} // extern "C"
+        -:  210://} // name space
+        -:  211:#endif
+        -:  212:
+        -:  213:#endif /* __FR_math_2D_h__ */
