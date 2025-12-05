@@ -11,4 +11,6 @@ IQmath(https://github.com/mikisama/IQmath)
 3、fr_math提供了函数封装和底层define方式定义的算法两种使用方式，IQmath提供了更丰富的函数封装调用方式。如果追求极致性能，调用fr_math的底层函数理论上更加高效，但是需要注意自己手动进行缩放，防止运算结果错误。
 
 # 如何使用
-我将会写一篇博文用来演示如何使用这两个库和计算它们的性能，在近一两天内会上线。
+请参考我的[博客文章](https://blog.csdn.net/qq_46314975/article/details/155517395?sharetype=blogdetail&sharerId=155517395&sharerefer=PC&sharesource=qq_46314975&spm=1011.2480.3001.8118)。
+
+如果该项目对您有所帮助，请帮我和开源库作者们点个星星，若您有任何疑问，可在本项目或我的博客（博客回复可能更快）中提出，我会尽力为您解答。
